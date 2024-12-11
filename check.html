@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task List Manager</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.4.3/dist/css/tabulator.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #38a169;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      opacity: 0.9;
+      z-index: 1000;
+    }
+    .toast.error {
+      background-color: #e53e3e;
+    }
+  </style>
+</head>
+<body class="p-6 bg-gray-100">
+  <h1 class="text-2xl font-bold mb-4">Task List Manager</h1>
+
+  <div class="mb-4">
+    <input type="text" id="search-bar" placeholder="Search tasks..." class="border p-2 w-1/2">
+    <select id="filter-status" onchange="filterTasks()" class="border p-2">
+      <option value="">All</option>
+      <option value="To Do">To Do</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Done">Done</option>
+    </select>
+  </div>
+
+  <div id="task-counters" class="mb-4 text-lg"></div>
+
+  <div class="mb-4">
+    <input type="text" id="new-task-title" placeholder="Title" class="border p-2">
+    <input type="text" id="new-task-desc" placeholder="Description" class="border p-2">
+    <select id="new-task-status" class="border p-2">
+      <option>To Do</option>
+      <option>In Progress</option>
+      <option>Done</option>
+    </select>
+    <button onclick="addNewTask()" class="bg-blue-500 text-white px-4 py-2 rounded">Add Task</button>
+  </div>
+
+  <div id="task-table" class="border"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@5.4.3/dist/js/tabulator.min.js"></script>
+  <script>
+    let table;
+
+    function initializeTable(tasks) {
+      table = new Tabulator("#task-table", {
+        data: tasks,
+        layout: "fitColumns",
+        columns: [
+          { title: "Task ID", field: "id", editor: false },
+          { title: "Title", field: "title", editor: "input" },
+          { title: "Description", field: "description", editor: "input" },
+          {
+            title: "Status",
+            field: "status",
+            editor: "select",
+            editorParams: {
+              values: ["To Do", "In Progress", "Done"],
+            },
+          },
+          {
+            title: "Actions",
+            formatter: "buttonCross",
+            width: 100,
+            align: "center",
+            cellClick: (e, cell) => {
+              cell.getRow().delete();
+              showToast("Task deleted successfully.");
+              updateCounters();
+            },
+          },
+        ],
+        rowUpdated: updateCounters,
+        rowDeleted: updateCounters,
+      });
+
+      updateCounters();
+    }
+
+    function addNewTask() {
+      const title = document.getElementById("new-task-title").value;
+      const description = document.getElementById("new-task-desc").value;
+      const status = document.getElementById("new-task-status").value;
+
+      if (title.trim()) {
+        const newTask = { id: Date.now(), title, description, status };
+        table.addData([newTask]);
+        showToast("Task added successfully.");
+        updateCounters();
+      } else {
+        showToast("Title is required.", "error");
+      }
+    }
+
+    function filterTasks() {
+      const status = document.getElementById("filter-status").value;
+      table.setFilter("status", "=", status || undefined);
+    }
+
+    function updateCounters() {
+      const tasks = table.getData();
+      const counters = {
+        "To Do": tasks.filter(task => task.status === "To Do").length,
+        "In Progress": tasks.filter(task => task.status === "In Progress").length,
+        "Done": tasks.filter(task => task.status === "Done").length,
+      };
+      document.getElementById("task-counters").innerText =
+        `To Do: ${counters["To Do"]}, In Progress: ${counters["In Progress"]}, Done: ${counters["Done"]}`;
+    }
+
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Fetch initial data
+    fetch('https://jsonplaceholder.typicode.com/todos')
+      .then(response => response.json())
+      .then(data => {
+        const tasks = data.slice(0, 20).map(task => ({
+          id: task.id,
+          title: task.title, 
+          description: '', 
+          status: task.completed ? 'Done' : 'To Do',
+        }));
+        initializeTable(tasks);
+      });
+  </script>
+</body>
+</html>
